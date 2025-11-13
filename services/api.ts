@@ -1,4 +1,4 @@
-import type { Quote, Service, Transaction, Vehicle, ServiceStatus } from '../types';
+import type { Quote, Service, Transaction, Vehicle, ServiceStatus, QuoteStatus } from '../types';
 
 // Helper function to get data from localStorage
 const getLocalStorage = <T,>(key: string, defaultValue: T): T => {
@@ -23,8 +23,10 @@ const setLocalStorage = <T,>(key:string, value: T) => {
 
 // --- MOCK DATA ---
 const initialQuotes: Quote[] = [
-    { id: 'q1', currentLocation: 'Oficina, São Paulo, SP', origin: 'Morumbi, São Paulo, SP', destination: 'Aeroporto de Congonhas, São Paulo, SP', returnAddress: 'Garagem Central, São Paulo, SP', totalDistance: 125, kmValue: 5.5, minCharge: 150, extras: 50, notes: 'Pedágio incluso', total: 737.5, fuelCost: 86.62, createdAt: new Date(Date.now() - 86400000).toISOString() },
-    { id: 'q2', currentLocation: 'Base, Itupeva, SP', origin: 'rua jose vila busquet', destination: 'geraldo ferraz itupeva', returnAddress: 'Base, Itupeva, SP', totalDistance: 205, kmValue: 5.5, minCharge: 150, extras: 0, notes: '', total: 1277.5, fuelCost: 150.29, createdAt: new Date(Date.now() - 172800000).toISOString() },
+    { id: 'q1', currentLocation: 'Oficina, São Paulo, SP', origin: 'Morumbi, São Paulo, SP', destination: 'Aeroporto de Congonhas, São Paulo, SP', returnAddress: 'Garagem Central, São Paulo, SP', totalDistance: 125, kmValue: 5.5, minCharge: 150, extras: 50, notes: 'Pedágio incluso', total: 737.5, fuelCost: 86.62, createdAt: new Date(Date.now() - 86400000).toISOString(), status: 'service_created' },
+    { id: 'q2', currentLocation: 'Base, Itupeva, SP', origin: 'rua jose vila busquet', destination: 'geraldo ferraz itupeva', returnAddress: 'Base, Itupeva, SP', totalDistance: 205, kmValue: 5.5, minCharge: 150, extras: 0, notes: '', total: 1277.5, fuelCost: 150.29, createdAt: new Date(Date.now() - 172800000).toISOString(), status: 'service_created' },
+    { id: 'q3', currentLocation: 'Base, Campinas, SP', origin: 'Centro, Campinas, SP', destination: 'Viracopos, Campinas, SP', returnAddress: 'Base, Campinas, SP', totalDistance: 80, kmValue: 5.5, minCharge: 150, extras: 0, notes: '', total: 400, fuelCost: 55.80, createdAt: new Date(Date.now() - 2 * 86400000).toISOString(), status: 'service_created' },
+    { id: 'q4', currentLocation: 'Rua das Flores, 123', origin: 'avenida paulista, 5454', destination: 'rua geraldo ferraz, 320 itupeva', returnAddress: 'Garagem Central, São Paulo, SP', totalDistance: 219.1, kmValue: 5.5, minCharge: 150, extras: 0, notes: '', total: 1355.05, fuelCost: 160.89, createdAt: new Date().toISOString(), status: 'pending' },
 ];
 
 const initialServices: Service[] = [
@@ -63,9 +65,9 @@ if (!localStorage.getItem('reboque360_vehicles')) {
 export const api = {
   // Quotes
   getQuotes: async (): Promise<Quote[]> => getLocalStorage('reboque360_quotes', []),
-  addQuote: async (quote: Omit<Quote, 'id' | 'createdAt'>): Promise<Quote> => {
+  addQuote: async (quote: Omit<Quote, 'id' | 'createdAt' | 'status'>): Promise<Quote> => {
     const quotes = await api.getQuotes();
-    const newQuote: Quote = { ...quote, id: `q${Date.now()}`, createdAt: new Date().toISOString() };
+    const newQuote: Quote = { ...quote, id: `q${Date.now()}`, createdAt: new Date().toISOString(), status: 'pending' };
     setLocalStorage('reboque360_quotes', [...quotes, newQuote]);
     return newQuote;
   },
@@ -76,6 +78,14 @@ export const api = {
     quotes[quoteIndex] = updatedQuote;
     setLocalStorage('reboque360_quotes', quotes);
     return updatedQuote;
+  },
+  updateQuoteStatus: async (quoteId: string, status: QuoteStatus): Promise<Quote> => {
+    const quotes = await api.getQuotes();
+    const quoteIndex = quotes.findIndex(q => q.id === quoteId);
+    if (quoteIndex === -1) throw new Error('Quote not found');
+    quotes[quoteIndex].status = status;
+    setLocalStorage('reboque360_quotes', quotes);
+    return quotes[quoteIndex];
   },
 
   // Services
@@ -94,6 +104,15 @@ export const api = {
       createdAt: new Date().toISOString(),
     };
     setLocalStorage('reboque360_services', [...services, newService]);
+
+    // Update quote status directly
+    const quotes = await api.getQuotes();
+    const quoteIndex = quotes.findIndex(q => q.id === quote.id);
+    if (quoteIndex !== -1) {
+        quotes[quoteIndex].status = 'service_created';
+        setLocalStorage('reboque360_quotes', quotes);
+    }
+    
     return newService;
   },
   updateServiceStatus: async (serviceId: string, status: ServiceStatus): Promise<Service> => {

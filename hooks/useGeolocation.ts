@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 
 interface GeolocationState {
@@ -27,7 +26,8 @@ export const useGeolocation = () => {
       },
       (error) => {
         setState({ loading: false, error, data: null });
-      }
+      },
+      { enableHighAccuracy: true } // Request higher accuracy from the device
     );
   };
 

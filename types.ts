@@ -27,6 +27,8 @@ export interface PlanDetails {
     features: string[];
 }
 
+export type QuoteStatus = 'pending' | 'approved' | 'rejected' | 'service_created';
+
 export interface Quote {
   id: string;
   currentLocation: string; // Driver's starting point
@@ -41,6 +43,7 @@ export interface Quote {
   notes: string;
   total: number; // Price for the client
   fuelCost: number; // Internal cost
+  status: QuoteStatus;
   createdAt: string;
 }
 

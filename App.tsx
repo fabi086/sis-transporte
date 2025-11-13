@@ -14,6 +14,7 @@ import { Plus } from './components/icons';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>('dashboard');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   
   // Mock user state, including the subscription plan
   const [user, setUser] = useState<User>({
@@ -38,6 +39,10 @@ const App: React.FC = () => {
       return;
     }
     setCurrentView(view);
+    // Close sidebar on navigation in mobile
+    if (window.innerWidth < 768) {
+      setIsSidebarOpen(false);
+    }
   };
   
   const currentPlanDetails = useMemo(() => PLANS[user.plan], [user.plan]);
@@ -63,15 +68,21 @@ const App: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-gray-100 font-sans">
-      <Sidebar currentView={currentView} setCurrentView={handleViewChange} userPlan={user.plan} />
+      <Sidebar 
+        currentView={currentView} 
+        setCurrentView={handleViewChange} 
+        userPlan={user.plan} 
+        isOpen={isSidebarOpen}
+        setIsOpen={setIsSidebarOpen}
+      />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Header user={user} />
+        <Header user={user} onMenuClick={() => setIsSidebarOpen(prev => !prev)} />
         <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-4 md:p-8 relative">
           {renderView()}
           {currentView !== 'quotes' && (
              <button
               onClick={() => handleViewChange('quotes')}
-              className="fixed bottom-8 right-8 bg-brand-blue-600 hover:bg-brand-blue-700 text-white rounded-full p-4 shadow-lg transition-transform transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-blue-500 z-50"
+              className="fixed bottom-8 right-8 bg-brand-blue-600 hover:bg-brand-blue-700 text-white rounded-full p-4 shadow-lg transition-transform transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-blue-500 z-20"
               aria-label="Novo Orçamento"
             >
               <Plus className="h-6 w-6" />
