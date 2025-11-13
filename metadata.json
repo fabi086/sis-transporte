@@ -1,0 +1,7 @@
+{
+  "name": "Reboque360",
+  "description": "A complete management SaaS platform for tow truck drivers, offering route calculation, service control, financial management, and fleet tracking.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
