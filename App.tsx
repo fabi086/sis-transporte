@@ -10,9 +10,9 @@ import { Settings } from './components/Settings';
 import type { User, Plan, View } from './types';
 import { PLANS } from './constants';
 import { Plus } from './components/icons';
-import { getSupabase, setSupabaseCredentials } from './lib/supabase';
+import { supabase } from './lib/supabase';
 import { Auth } from './components/Auth';
-import type { Session, SupabaseClient } from '@supabase/supabase-js';
+import type { Session } from '@supabase/supabase-js';
 
 // Mock user settings, can be moved to user profile in DB later
 const initialUserSettings = {
@@ -28,7 +28,6 @@ const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   
-  const [supabase, setSupabase] = useState<SupabaseClient | null>(() => getSupabase());
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -42,7 +41,29 @@ const App: React.FC = () => {
     settings: initialUserSettings,
   });
   
+  // Register service worker for push notifications
   useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      const registerServiceWorker = async () => {
+        try {
+          const registration = await navigator.serviceWorker.register('/service-worker.js');
+          console.log('Service Worker registered successfully:', registration);
+        } catch (error) {
+          console.error('Service Worker registration failed:', error);
+        }
+      };
+      
+      // Using the 'load' event ensures that SW registration doesn't delay the initial render.
+      window.addEventListener('load', registerServiceWorker);
+      
+      // Cleanup the event listener on component unmount
+      return () => window.removeEventListener('load', registerServiceWorker);
+    }
+  }, []);
+
+
+  useEffect(() => {
+    // If supabase client is not configured, don't do anything.
     if (!supabase) {
       setLoading(false);
       return;
@@ -59,7 +80,7 @@ const App: React.FC = () => {
     });
 
     return () => subscription.unsubscribe();
-  }, [supabase]);
+  }, []);
 
   // Derive user object from session
   useEffect(() => {
@@ -79,15 +100,6 @@ const App: React.FC = () => {
       }));
     }
   }, [session]);
-
-  const handleSetCredentials = (url: string, key: string) => {
-    const newSupabaseClient = setSupabaseCredentials(url, key);
-    if(newSupabaseClient) {
-      setSupabase(newSupabaseClient);
-    } else {
-      alert("Falha ao configurar as credenciais do Supabase. Verifique os valores e tente novamente.");
-    }
-  };
 
   const handleLogout = async () => {
     if (supabase) {
@@ -138,8 +150,10 @@ const App: React.FC = () => {
     );
   }
 
+  // If there's no supabase client, Auth component will show an error.
+  // If there is a client but no session, Auth will show login/signup.
   if (!session) {
-      return <Auth onSetCredentials={handleSetCredentials} supabase={supabase} />;
+      return <Auth />;
   }
 
 

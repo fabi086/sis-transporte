@@ -1,53 +1,36 @@
-import React, { useState, useEffect } from 'react';
-import { Truck, Database } from './icons';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import React, { useState } from 'react';
+import { Truck } from './icons';
+import { supabase } from '../lib/supabase'; // Import the pre-configured client
 
-interface AuthProps {
-    onSetCredentials: (url: string, key: string) => void;
-    supabase: SupabaseClient | null;
-}
-
-export const Auth: React.FC<AuthProps> = ({ onSetCredentials, supabase }) => {
+export const Auth: React.FC = () => {
     const [view, setView] = useState('signIn'); // signIn, signUp
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [name, setName] = useState('');
     const [companyName, setCompanyName] = useState('');
     
-    const [supabaseUrl, setSupabaseUrl] = useState('');
-    const [supabaseKey, setSupabaseKey] = useState('');
-    const [isConfiguring, setIsConfiguring] = useState(!supabase);
-    
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [message, setMessage] = useState<string | null>(null);
 
-    useEffect(() => {
-        // Load credentials from local storage on mount
-        const storedUrl = localStorage.getItem('reboque360_supabaseUrl') || '';
-        const storedKey = localStorage.getItem('reboque360_supabaseKey') || '';
-        setSupabaseUrl(storedUrl);
-        setSupabaseKey(storedKey);
-        setIsConfiguring(!storedUrl || !storedKey);
-    }, []);
-
-    const handleConfigSave = () => {
-        if (!supabaseUrl || !supabaseKey) {
-            setError("URL e Chave do Supabase são obrigatórios.");
-            return;
-        }
-        onSetCredentials(supabaseUrl, supabaseKey);
-        setIsConfiguring(false);
-        setError(null);
-    };
+    // If Supabase is not configured, show an error message to the developer.
+    if (!supabase) {
+        return (
+            <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 p-4">
+                <div className="max-w-md w-full bg-white rounded-lg shadow-xl p-8 text-center">
+                    <h1 className="text-2xl font-bold text-red-600 mb-4">Erro de Configuração</h1>
+                    <p className="text-gray-700">
+                        As credenciais do Supabase não foram encontradas. Por favor, edite o arquivo 
+                        <code className="bg-gray-200 text-sm p-1 rounded mx-1">lib/supabase.ts</code> 
+                        e insira a URL e a Chave Anon do seu projeto.
+                    </p>
+                </div>
+            </div>
+        );
+    }
 
     const handleAuthAction = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!supabase) {
-            setError("A configuração do Supabase é necessária antes de autenticar.");
-            return;
-        }
-
         setLoading(true);
         setError(null);
         setMessage(null);
@@ -98,57 +81,29 @@ export const Auth: React.FC<AuthProps> = ({ onSetCredentials, supabase }) => {
                     <p className="text-gray-600">Sua plataforma de gestão completa.</p>
                 </div>
 
-                {isConfiguring ? (
-                    <div className="space-y-4">
-                        <h3 className="font-bold text-lg text-center text-gray-700">Configuração do Banco de Dados</h3>
-                        <p className="text-sm text-center text-gray-500">
-                           Para começar, insira as credenciais do seu projeto Supabase. Você pode encontrá-las em Project Settings {'>'} API no seu painel do Supabase.
-                        </p>
-                         <div className="text-xs text-center text-yellow-700 bg-yellow-100 p-2 rounded-md">
-                            <strong>Aviso:</strong> As chaves são salvas no seu navegador. Para um ambiente de produção seguro, use variáveis de ambiente no servidor.
-                        </div>
-                        <div>
-                            <label className="text-sm font-medium text-gray-700">Supabase URL</label>
-                            <input type="url" value={supabaseUrl} onChange={e => setSupabaseUrl(e.target.value)} placeholder="https://<id>.supabase.co" className={inputClasses} />
-                        </div>
-                        <div>
-                            <label className="text-sm font-medium text-gray-700">Supabase Anon Key</label>
-                            <input type="text" value={supabaseKey} onChange={e => setSupabaseKey(e.target.value)} placeholder="eyJhbGciOi..." className={inputClasses} />
-                        </div>
-                        {error && <p className="text-sm text-red-600 text-center">{error}</p>}
-                        <button onClick={handleConfigSave} className="w-full bg-brand-blue-600 hover:bg-brand-blue-700 text-white font-bold py-3 rounded-lg transition-colors">
-                            Salvar Configuração
-                        </button>
+                <>
+                    <div className="flex border-b">
+                        <button onClick={() => setView('signIn')} className={`flex-1 py-2 font-semibold ${view === 'signIn' ? 'border-b-2 border-brand-blue-600 text-brand-blue-600' : 'text-gray-500'}`}>Entrar</button>
+                        <button onClick={() => setView('signUp')} className={`flex-1 py-2 font-semibold ${view === 'signUp' ? 'border-b-2 border-brand-blue-600 text-brand-blue-600' : 'text-gray-500'}`}>Cadastrar</button>
                     </div>
-                ) : (
-                    <>
-                        <div className="flex border-b">
-                            <button onClick={() => setView('signIn')} className={`flex-1 py-2 font-semibold ${view === 'signIn' ? 'border-b-2 border-brand-blue-600 text-brand-blue-600' : 'text-gray-500'}`}>Entrar</button>
-                            <button onClick={() => setView('signUp')} className={`flex-1 py-2 font-semibold ${view === 'signUp' ? 'border-b-2 border-brand-blue-600 text-brand-blue-600' : 'text-gray-500'}`}>Cadastrar</button>
-                        </div>
-                        <form onSubmit={handleAuthAction} className="space-y-4">
-                            {view === 'signUp' && (
-                                <>
-                                    <input type="text" placeholder="Seu Nome" value={name} onChange={e => setName(e.target.value)} className={inputClasses} required />
-                                    <input type="text" placeholder="Nome da Empresa" value={companyName} onChange={e => setCompanyName(e.target.value)} className={inputClasses} required />
-                                </>
-                            )}
-                            <input type="email" placeholder="E-mail" value={email} onChange={e => setEmail(e.target.value)} className={inputClasses} required />
-                            <input type="password" placeholder="Senha" value={password} onChange={e => setPassword(e.target.value)} className={inputClasses} required />
-                            
-                            {error && <p className="text-sm text-red-600 text-center">{error}</p>}
-                            {message && <p className="text-sm text-green-600 text-center">{message}</p>}
+                    <form onSubmit={handleAuthAction} className="space-y-4">
+                        {view === 'signUp' && (
+                            <>
+                                <input type="text" placeholder="Seu Nome" value={name} onChange={e => setName(e.target.value)} className={inputClasses} required />
+                                <input type="text" placeholder="Nome da Empresa" value={companyName} onChange={e => setCompanyName(e.target.value)} className={inputClasses} required />
+                            </>
+                        )}
+                        <input type="email" placeholder="E-mail" value={email} onChange={e => setEmail(e.target.value)} className={inputClasses} required />
+                        <input type="password" placeholder="Senha" value={password} onChange={e => setPassword(e.target.value)} className={inputClasses} required />
+                        
+                        {error && <p className="text-sm text-red-600 text-center">{error}</p>}
+                        {message && <p className="text-sm text-green-600 text-center">{message}</p>}
 
-                            <button type="submit" disabled={loading} className="w-full bg-brand-blue-600 hover:bg-brand-blue-700 text-white font-bold py-3 rounded-lg transition-colors disabled:bg-gray-400">
-                                {loading ? 'Carregando...' : (view === 'signIn' ? 'Entrar' : 'Criar Conta')}
-                            </button>
-                        </form>
-                         <button onClick={() => setIsConfiguring(true)} className="w-full flex items-center justify-center text-sm text-gray-600 hover:text-brand-blue-700 mt-4">
-                            <Database className="w-4 h-4 mr-2" />
-                            Alterar Configuração do Banco de Dados
+                        <button type="submit" disabled={loading} className="w-full bg-brand-blue-600 hover:bg-brand-blue-700 text-white font-bold py-3 rounded-lg transition-colors disabled:bg-gray-400">
+                            {loading ? 'Carregando...' : (view === 'signIn' ? 'Entrar' : 'Criar Conta')}
                         </button>
-                    </>
-                )}
+                    </form>
+                </>
             </div>
         </div>
     );

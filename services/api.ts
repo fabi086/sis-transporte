@@ -1,4 +1,5 @@
 import type { Quote, Service, Transaction, Vehicle, ServiceStatus, QuoteStatus } from '../types';
+import { supabase } from '../lib/supabase';
 
 // Helper function to get data from localStorage
 const getLocalStorage = <T,>(key: string, defaultValue: T): T => {
@@ -62,6 +63,30 @@ if (!localStorage.getItem('reboque360_vehicles')) {
 
 // --- API FUNCTIONS ---
 
+/*
+  DB TABLE SETUP FOR PUSH NOTIFICATIONS
+  -----------------------------------------
+  To store push subscriptions, you need to create a new table in your Supabase project.
+  Go to the "SQL Editor" in your Supabase dashboard and run the following command:
+
+  CREATE TABLE public.push_subscriptions (
+    endpoint TEXT PRIMARY KEY,
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+    p256dh TEXT NOT NULL,
+    auth TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  );
+
+  -- Enable Row Level Security
+  ALTER TABLE public.push_subscriptions ENABLE ROW LEVEL SECURITY;
+
+  -- Create policies to ensure users can only manage their own subscriptions
+  CREATE POLICY "Users can manage their own push subscriptions"
+  ON public.push_subscriptions FOR ALL
+  USING (auth.uid() = user_id);
+
+*/
+
 export const api = {
   // Quotes
   getQuotes: async (): Promise<Quote[]> => getLocalStorage('reboque360_quotes', []),
@@ -113,6 +138,9 @@ export const api = {
         setLocalStorage('reboque360_quotes', quotes);
     }
     
+    // TRIGGER PUSH NOTIFICATION: In a real backend, you would now query the 'push_subscriptions' table 
+    // for the user's subscriptions and send a push message about the new service.
+    
     return newService;
   },
   updateServiceStatus: async (serviceId: string, status: ServiceStatus): Promise<Service> => {
@@ -121,6 +149,9 @@ export const api = {
     if (serviceIndex === -1) throw new Error('Service not found');
     services[serviceIndex].status = status;
     setLocalStorage('reboque360_services', services);
+
+    // TRIGGER PUSH NOTIFICATION: Here you would trigger a push message about the status update.
+
     return services[serviceIndex];
   },
 
@@ -151,6 +182,42 @@ export const api = {
     let vehicles = await api.getVehicles();
     vehicles = vehicles.filter(v => v.id !== vehicleId);
     setLocalStorage('reboque360_vehicles', vehicles);
+  },
+
+  // Push Notifications
+  savePushSubscription: async (subscription: PushSubscription): Promise<void> => {
+    if (!supabase) throw new Error("Supabase client not initialized.");
+    
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("User not authenticated.");
+
+    const subscriptionData = subscription.toJSON();
+
+    const { error } = await supabase.from('push_subscriptions').upsert({
+      endpoint: subscription.endpoint,
+      user_id: user.id,
+      p256dh: subscriptionData.keys?.p256dh,
+      auth: subscriptionData.keys?.auth,
+    }, { onConflict: 'endpoint' }); // Upsert based on the endpoint to avoid duplicates
+
+    if (error) {
+      console.error('Error saving push subscription:', error);
+      throw error;
+    }
+  },
+
+  removePushSubscription: async (endpoint: string): Promise<void> => {
+    if (!supabase) throw new Error("Supabase client not initialized.");
+
+    const { error } = await supabase
+      .from('push_subscriptions')
+      .delete()
+      .match({ endpoint: endpoint });
+
+    if (error) {
+      console.error('Error removing push subscription:', error);
+      throw error;
+    }
   },
   
   // Dashboard Data

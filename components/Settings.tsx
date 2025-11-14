@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import type { User } from '../types';
 import { PLANS } from '../constants';
+import { usePushNotifications } from '../hooks/usePushNotifications';
 
 interface SettingsProps {
   user: User;
@@ -14,6 +15,9 @@ export const Settings: React.FC<SettingsProps> = ({ user, setUser }) => {
   const [returnAddress, setReturnAddress] = useState(user.settings.defaultReturnAddress);
   const [fuelPrice, setFuelPrice] = useState(user.settings.fuelPrice);
   const [vehicleConsumption, setVehicleConsumption] = useState(user.settings.vehicleConsumption);
+  
+  // Hook for push notification logic
+  const { isSubscribed, subscribeToPush, unsubscribeFromPush, error: pushError, loading: pushLoading, isSupported } = usePushNotifications();
 
 
   const handleSave = () => {
@@ -92,6 +96,30 @@ export const Settings: React.FC<SettingsProps> = ({ user, setUser }) => {
                 <input type="number" step="0.1" value={vehicleConsumption} onChange={e => setVehicleConsumption(parseFloat(e.target.value) || 0)} className={inputClasses} placeholder="Ex: 8.5" />
             </div>
         </div>
+      </div>
+
+      {/* Notifications Settings */}
+      <div className="bg-white p-8 rounded-lg shadow-lg">
+          <h2 className="text-2xl font-bold text-gray-800 border-b pb-4 mb-6">Notificações</h2>
+          {!isSupported ? (
+              <p className="text-gray-600">Seu navegador não suporta notificações push.</p>
+          ) : (
+              <div>
+                  <p className="text-gray-600 mb-4">Receba alertas sobre novos serviços e atualizações importantes diretamente no seu dispositivo.</p>
+                  <button 
+                      onClick={isSubscribed ? unsubscribeFromPush : subscribeToPush}
+                      disabled={pushLoading}
+                      className={`font-bold py-2 px-6 rounded-lg transition ${
+                          isSubscribed 
+                              ? 'bg-red-500 hover:bg-red-600 text-white' 
+                              : 'bg-green-500 hover:bg-green-600 text-white'
+                      } disabled:bg-gray-400 disabled:cursor-wait`}
+                  >
+                      {pushLoading ? 'Processando...' : (isSubscribed ? 'Desativar Notificações' : 'Ativar Notificações')}
+                  </button>
+                  {pushError && <p className="text-red-500 text-sm mt-4">{pushError.message}</p>}
+              </div>
+          )}
       </div>
       
       {/* Plan Settings */}
