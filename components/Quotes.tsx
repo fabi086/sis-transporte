@@ -5,7 +5,7 @@ import type { Quote, User, PlanDetails, QuoteStatus, Vehicle } from '../types';
 import { api } from '../services/api';
 import { mapsService } from '../services/mapsService';
 import { useGeolocation } from '../hooks/useGeolocation';
-import { MapPin, Bot, Trash, Truck } from './icons';
+import { MapPin, Bot, Trash, Truck, Edit } from './icons';
 import { QuoteEditModal } from './QuoteEditModal';
 import { QuoteSummaryModal } from './QuoteSummaryModal';
 
@@ -137,8 +137,7 @@ export const Quotes: React.FC<QuotesProps> = ({ user, planDetails }) => {
         }
     };
 
-    const handleDeleteQuote = async (e: React.MouseEvent, quoteId: string) => {
-        e.stopPropagation();
+    const handleDeleteQuote = async (quoteId: string) => {
         if (window.confirm('Tem certeza que deseja excluir este orçamento? Esta ação não pode ser desfeita.')) {
             try {
                 await api.deleteQuote(quoteId);
@@ -278,6 +277,8 @@ export const Quotes: React.FC<QuotesProps> = ({ user, planDetails }) => {
         return filtered;
     }, [quotes, statusFilter, dateFilter]);
 
+    const inputClassesFilters = "w-full bg-gray-800 text-white rounded-lg py-2 px-3 border-0 focus:outline-none focus:ring-2 focus:ring-brand-blue-500 placeholder-gray-400";
+
     return (
         <>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -329,65 +330,71 @@ export const Quotes: React.FC<QuotesProps> = ({ user, planDetails }) => {
             </div>
 
             <div className="lg:col-span-2 space-y-6">
-                <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 bg-white p-4 rounded-lg shadow-md sticky top-0 z-10">
-                    <h1 className="text-2xl font-bold text-gray-800">Histórico</h1>
-                    <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
-                        <input type="date" value={dateFilter.start} onChange={e => setDateFilter(p => ({...p, start: e.target.value}))} className="bg-gray-100 border-gray-300 text-sm rounded-lg p-2.5" />
-                        <input type="date" value={dateFilter.end} onChange={e => setDateFilter(p => ({...p, end: e.target.value}))} className="bg-gray-100 border-gray-300 text-sm rounded-lg p-2.5" />
-                        <select 
-                            value={statusFilter} 
-                            onChange={e => setStatusFilter(e.target.value as any)}
-                            className="bg-gray-100 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-brand-blue-500 focus:border-brand-blue-500 block w-full p-2.5"
-                        >
-                            <option value="all">Todos Status</option>
-                            {Object.entries(statusConfig).map(([statusKey, { label }]) => (
-                                <option key={statusKey} value={statusKey}>{label}</option>
-                            ))}
-                        </select>
+                <div className="bg-gray-700 p-4 rounded-lg shadow-md flex flex-col md:flex-row gap-4 items-center sticky top-0 z-10 flex-wrap">
+                    <h2 className="text-xl font-bold text-white mr-4 hidden md:block">Histórico</h2>
+                    <div className="flex w-full md:w-auto gap-2">
+                         <input type="date" value={dateFilter.start} onChange={e => setDateFilter(p => ({...p, start: e.target.value}))} className={inputClassesFilters} />
+                         <input type="date" value={dateFilter.end} onChange={e => setDateFilter(p => ({...p, end: e.target.value}))} className={inputClassesFilters} />
                     </div>
+                    <select 
+                        value={statusFilter} 
+                        onChange={e => setStatusFilter(e.target.value as any)}
+                        className={`${inputClassesFilters} md:w-auto`}
+                    >
+                        <option value="all">Todos Status</option>
+                        {Object.entries(statusConfig).map(([statusKey, { label }]) => (
+                            <option key={statusKey} value={statusKey}>{label}</option>
+                        ))}
+                    </select>
                 </div>
                 <div className="space-y-4 max-h-[75vh] overflow-y-auto pr-2">
                     {loading ? <p>Carregando histórico...</p> : filteredQuotes.map(q => (
-                        <div key={q.id} className="relative group bg-white border border-gray-200 p-4 rounded-lg hover:shadow-md transition-shadow duration-200">
-                             <button 
-                                onClick={(e) => handleDeleteQuote(e, q.id)} 
-                                className="absolute top-2 right-2 p-1.5 text-gray-400 bg-gray-100 rounded-full opacity-0 group-hover:opacity-100 hover:bg-red-100 hover:text-red-600 transition-opacity"
-                                aria-label="Excluir Orçamento"
-                            >
-                                <Trash className="w-4 h-4" />
-                            </button>
-                            <button 
-                                onClick={() => handleEditQuote(q)}
-                                className="w-full text-left"
-                            >
-                                <div className="flex flex-col sm:flex-row justify-between sm:items-start">
-                                    <div>
-                                        <p className="font-bold text-gray-800">{q.origin} → {q.destination}</p>
-                                        <p className="text-sm text-gray-500">{new Date(q.createdAt).toLocaleDateString('pt-BR')} - {q.totalDistance} km (total)</p>
-                                        {q.vehicleId && vehicles.find(v => v.id === q.vehicleId) && 
-                                          <p className="text-xs text-gray-500 mt-1 flex items-center"><Truck className="w-3 h-3 mr-1"/>{vehicles.find(v => v.id === q.vehicleId)?.model}</p>
-                                        }
-                                    </div>
-                                    <p className="text-lg font-bold text-brand-blue-700 mt-2 sm:mt-0">R$ {q.total.toFixed(2)}</p>
+                        <div key={q.id} className="bg-white border border-gray-200 p-4 rounded-lg hover:shadow-md transition-shadow duration-200">
+                             <div className="flex flex-col sm:flex-row justify-between sm:items-start">
+                                 <div>
+                                     <p className="font-bold text-gray-800">{q.origin} → {q.destination}</p>
+                                     <p className="text-sm text-gray-500">{new Date(q.createdAt).toLocaleDateString('pt-BR')} - {q.totalDistance} km (total)</p>
+                                     {q.vehicleId && vehicles.find(v => v.id === q.vehicleId) && 
+                                       <p className="text-xs text-gray-500 mt-1 flex items-center"><Truck className="w-3 h-3 mr-1"/>{vehicles.find(v => v.id === q.vehicleId)?.model}</p>
+                                     }
+                                 </div>
+                                 <p className="text-lg font-bold text-brand-blue-700 mt-2 sm:mt-0">R$ {q.total.toFixed(2)}</p>
+                             </div>
+                             {q.notes && <p className="text-sm text-gray-600 mt-2 italic">"{q.notes}"</p>}
+                             <div className="mt-3 pt-3 border-t flex flex-wrap gap-2 items-center justify-between">
+                                <div className="flex flex-wrap gap-2 items-center">
+                                  <button onClick={(e) => handleShareWhatsApp(e, q)} className="z-10 text-sm bg-green-500 text-white py-1 px-3 rounded-md hover:bg-green-600">Compartilhar no WhatsApp</button>
+                                  <button onClick={(e) => handleCreateServiceClick(e, q)} disabled={q.status === 'service_created'} className="z-10 text-sm bg-brand-blue-500 text-white py-1 px-3 rounded-md hover:bg-brand-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed">
+                                      {q.status === 'service_created' ? 'Serviço Criado' : 'Criar Serviço'}
+                                  </button>
+                                  <div className="relative z-10">
+                                      <select
+                                          value={q.status}
+                                          onChange={(e) => handleStatusChange(e, q.id, e.target.value as QuoteStatus)}
+                                          onClick={(e) => e.stopPropagation()} // Prevent card click
+                                          className={`text-sm font-semibold rounded-full px-3 py-1.5 appearance-none focus:outline-none cursor-pointer ${statusConfig[q.status]?.color || 'bg-gray-200'}`}
+                                      >
+                                          {Object.entries(statusConfig).map(([key, { label }]) => <option key={key} value={key}>{label}</option>)}
+                                      </select>
+                                  </div>
                                 </div>
-                                {q.notes && <p className="text-sm text-gray-600 mt-2 italic">"{q.notes}"</p>}
-                                <div className="mt-3 flex flex-wrap gap-2 items-center">
-                                    <button onClick={(e) => handleShareWhatsApp(e, q)} className="z-10 text-sm bg-green-500 text-white py-1 px-3 rounded-md hover:bg-green-600">Compartilhar no WhatsApp</button>
-                                    <button onClick={(e) => handleCreateServiceClick(e, q)} disabled={q.status === 'service_created'} className="z-10 text-sm bg-brand-blue-500 text-white py-1 px-3 rounded-md hover:bg-brand-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed">
-                                        {q.status === 'service_created' ? 'Serviço Criado' : 'Criar Serviço'}
+                                <div className="flex items-center space-x-2">
+                                    <button 
+                                        onClick={() => handleEditQuote(q)}
+                                        className="p-1.5 text-gray-400 hover:bg-gray-200 hover:text-gray-700 rounded-full"
+                                        aria-label="Editar Orçamento"
+                                    >
+                                        <Edit className="w-4 h-4" />
                                     </button>
-                                    <div className="relative z-10">
-                                        <select
-                                            value={q.status}
-                                            onChange={(e) => handleStatusChange(e, q.id, e.target.value as QuoteStatus)}
-                                            onClick={(e) => e.stopPropagation()} // Prevent card click
-                                            className={`text-sm font-semibold rounded-full px-3 py-1.5 appearance-none focus:outline-none cursor-pointer ${statusConfig[q.status]?.color || 'bg-gray-200'}`}
-                                        >
-                                            {Object.entries(statusConfig).map(([key, { label }]) => <option key={key} value={key}>{label}</option>)}
-                                        </select>
-                                    </div>
+                                    <button 
+                                        onClick={() => handleDeleteQuote(q.id)} 
+                                        className="p-1.5 text-gray-400 hover:bg-red-100 hover:text-red-600 rounded-full"
+                                        aria-label="Excluir Orçamento"
+                                    >
+                                        <Trash className="w-4 h-4" />
+                                    </button>
                                 </div>
-                            </button>
+                             </div>
                         </div>
                     ))}
                     {filteredQuotes.length === 0 && !loading && <p className="text-center text-gray-500 py-4">Nenhum orçamento encontrado com os filtros aplicados.</p>}
