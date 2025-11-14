@@ -14,7 +14,6 @@ export const Settings: React.FC<SettingsProps> = ({ user, setUser }) => {
   const [companyName, setCompanyName] = useState(user.companyName);
   const [returnAddress, setReturnAddress] = useState(user.settings.defaultReturnAddress);
   const [fuelPrice, setFuelPrice] = useState(user.settings.fuelPrice);
-  const [vehicleConsumption, setVehicleConsumption] = useState(user.settings.vehicleConsumption);
   
   // Hook for push notification logic
   const { isSubscribed, subscribeToPush, unsubscribeFromPush, error: pushError, loading: pushLoading, isSupported } = usePushNotifications();
@@ -25,11 +24,11 @@ export const Settings: React.FC<SettingsProps> = ({ user, setUser }) => {
       ...prevUser,
       companyName,
       settings: {
+        ...prevUser.settings,
         defaultKmValue: kmValue,
         defaultMinCharge: minCharge,
         defaultReturnAddress: returnAddress,
         fuelPrice: fuelPrice,
-        vehicleConsumption: vehicleConsumption,
       }
     }));
     alert('Configurações salvas com sucesso!');
@@ -91,11 +90,8 @@ export const Settings: React.FC<SettingsProps> = ({ user, setUser }) => {
                 <label className="block text-sm font-medium text-gray-700">Preço do Combustível (R$/Litro)</label>
                 <input type="number" step="0.01" value={fuelPrice} onChange={e => setFuelPrice(parseFloat(e.target.value) || 0)} className={inputClasses} placeholder="Ex: 5.89" />
             </div>
-            <div>
-                <label className="block text-sm font-medium text-gray-700">Consumo do Veículo (km/Litro)</label>
-                <input type="number" step="0.1" value={vehicleConsumption} onChange={e => setVehicleConsumption(parseFloat(e.target.value) || 0)} className={inputClasses} placeholder="Ex: 8.5" />
-            </div>
         </div>
+         <p className="text-xs text-gray-500 mt-4">O consumo de combustível (km/L) agora é gerenciado individualmente para cada veículo na seção <span className="font-semibold">Frota</span>.</p>
       </div>
 
       {/* Notifications Settings */}

@@ -1,7 +1,5 @@
 import React from 'react';
-// FIX: Import ServiceStatus from '../types' as it's not exported from './Services'
-import type { ServiceWithDetails } from './Services';
-import type { ServiceStatus } from '../types';
+import type { ServiceWithDetails, ServiceStatus } from '../types';
 import { DollarSign, Fuel } from './icons';
 
 interface ServiceDetailModalProps {

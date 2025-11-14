@@ -1,4 +1,5 @@
 
+
 import React, { useEffect, useState } from 'react';
 import { BarChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, Bar } from 'recharts';
 import { api } from '../services/api';
@@ -11,6 +12,7 @@ interface SummaryData {
   totalRevenue: number;
   totalExpenses: number;
   netProfit: number;
+  costsByVehicle: { name: string; Custo: number }[];
 }
 
 // Mock data for the chart
@@ -60,20 +62,38 @@ export const Dashboard: React.FC<{ userPlan: Plan }> = ({ userPlan }) => {
         <DashboardCard icon={Truck} title="Lucro Líquido" value={`R$ ${summary.netProfit.toFixed(2)}`} color="bg-indigo-400" />
       </div>
 
-      <div className="bg-white p-6 rounded-lg shadow-lg">
-        <h2 className="text-xl font-bold text-gray-800 mb-4">Visão Geral Financeira (Últimos 6 Meses)</h2>
-        <div style={{ width: '100%', height: 300 }}>
-          <ResponsiveContainer>
-            <BarChart data={chartData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="name" />
-              <YAxis />
-              <Tooltip formatter={(value: number) => `R$ ${value.toFixed(2)}`} />
-              <Legend />
-              <Bar dataKey="Receita" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="Despesa" fill="#ef4444" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="bg-white p-6 rounded-lg shadow-lg">
+          <h2 className="text-xl font-bold text-gray-800 mb-4">Visão Geral Financeira (Últimos 6 Meses)</h2>
+          <div style={{ width: '100%', height: 300 }}>
+            <ResponsiveContainer>
+              <BarChart data={chartData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="name" />
+                <YAxis />
+                <Tooltip formatter={(value: number) => `R$ ${value.toFixed(2)}`} />
+                <Legend />
+                <Bar dataKey="Receita" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="Despesa" fill="#ef4444" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-lg shadow-lg">
+          <h2 className="text-xl font-bold text-gray-800 mb-4">Custos Operacionais por Veículo</h2>
+          <div style={{ width: '100%', height: 300 }}>
+            <ResponsiveContainer>
+              <BarChart data={summary.costsByVehicle} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                <XAxis type="number" />
+                <YAxis dataKey="name" type="category" width={80} />
+                <Tooltip formatter={(value: number) => `R$ ${value.toFixed(2)}`} />
+                <Legend />
+                <Bar dataKey="Custo" fill="#8884d8" radius={[0, 4, 4, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
       </div>
     </div>

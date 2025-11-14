@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import type { Service, ServiceStatus, Quote } from '../types';
+import type { Service, ServiceStatus, Quote, ServiceWithDetails } from '../types';
 import { api } from '../services/api';
 import { ServiceDetailModal } from './ServiceDetailModal';
 
@@ -9,12 +9,6 @@ const statusConfig: Record<ServiceStatus, { label: string; color: string }> = {
   in_progress: { label: 'Em Andamento', color: 'bg-blue-100 text-blue-800 border-blue-500' },
   completed: { label: 'Concluído', color: 'bg-green-100 text-green-800 border-green-500' },
 };
-
-export interface ServiceWithDetails extends Service {
-    origin: string;
-    destination: string;
-    profit: number;
-}
 
 export const Services: React.FC = () => {
   const [services, setServices] = useState<Service[]>([]);

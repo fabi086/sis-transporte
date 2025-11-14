@@ -24,10 +24,10 @@ const setLocalStorage = <T,>(key:string, value: T) => {
 
 // --- MOCK DATA ---
 const initialQuotes: Quote[] = [
-    { id: 'q1', currentLocation: 'Oficina, São Paulo, SP', origin: 'Morumbi, São Paulo, SP', destination: 'Aeroporto de Congonhas, São Paulo, SP', returnAddress: 'Garagem Central, São Paulo, SP', totalDistance: 125, kmValue: 5.5, minCharge: 150, extras: 50, notes: 'Pedágio incluso', total: 737.5, fuelCost: 86.62, createdAt: new Date(Date.now() - 86400000).toISOString(), status: 'service_created' },
-    { id: 'q2', currentLocation: 'Base, Itupeva, SP', origin: 'rua jose vila busquet', destination: 'geraldo ferraz itupeva', returnAddress: 'Base, Itupeva, SP', totalDistance: 205, kmValue: 5.5, minCharge: 150, extras: 0, notes: '', total: 1277.5, fuelCost: 150.29, createdAt: new Date(Date.now() - 172800000).toISOString(), status: 'service_created' },
-    { id: 'q3', currentLocation: 'Base, Campinas, SP', origin: 'Centro, Campinas, SP', destination: 'Viracopos, Campinas, SP', returnAddress: 'Base, Campinas, SP', totalDistance: 80, kmValue: 5.5, minCharge: 150, extras: 0, notes: '', total: 400, fuelCost: 55.80, createdAt: new Date(Date.now() - 2 * 86400000).toISOString(), status: 'service_created' },
-    { id: 'q4', currentLocation: 'Rua das Flores, 123', origin: 'avenida paulista, 5454', destination: 'rua geraldo ferraz, 320 itupeva', returnAddress: 'Garagem Central, São Paulo, SP', totalDistance: 219.1, kmValue: 5.5, minCharge: 150, extras: 0, notes: '', total: 1355.05, fuelCost: 160.89, createdAt: new Date().toISOString(), status: 'pending' },
+    { id: 'q1', vehicleId: 'v1', currentLocation: 'Oficina, São Paulo, SP', origin: 'Morumbi, São Paulo, SP', destination: 'Aeroporto de Congonhas, São Paulo, SP', returnAddress: 'Garagem Central, São Paulo, SP', totalDistance: 125, kmValue: 5.5, minCharge: 150, extras: 50, notes: 'Pedágio incluso', total: 737.5, fuelCost: 86.62, createdAt: new Date(Date.now() - 86400000).toISOString(), status: 'service_created' },
+    { id: 'q2', vehicleId: 'v2', currentLocation: 'Base, Itupeva, SP', origin: 'rua jose vila busquet', destination: 'geraldo ferraz itupeva', returnAddress: 'Base, Itupeva, SP', totalDistance: 205, kmValue: 5.5, minCharge: 150, extras: 0, notes: '', total: 1277.5, fuelCost: 150.29, createdAt: new Date(Date.now() - 172800000).toISOString(), status: 'service_created' },
+    { id: 'q3', vehicleId: 'v1', currentLocation: 'Base, Campinas, SP', origin: 'Centro, Campinas, SP', destination: 'Viracopos, Campinas, SP', returnAddress: 'Base, Campinas, SP', totalDistance: 80, kmValue: 5.5, minCharge: 150, extras: 0, notes: '', total: 400, fuelCost: 55.80, createdAt: new Date(Date.now() - 2 * 86400000).toISOString(), status: 'service_created' },
+    { id: 'q4', vehicleId: 'v1', currentLocation: 'Rua das Flores, 123', origin: 'avenida paulista, 5454', destination: 'rua geraldo ferraz, 320 itupeva', returnAddress: 'Garagem Central, São Paulo, SP', totalDistance: 219.1, kmValue: 5.5, minCharge: 150, extras: 0, notes: '', total: 1355.05, fuelCost: 160.89, createdAt: new Date().toISOString(), status: 'pending' },
 ];
 
 const initialServices: Service[] = [
@@ -111,6 +111,11 @@ export const api = {
     quotes[quoteIndex].status = status;
     setLocalStorage('reboque360_quotes', quotes);
     return quotes[quoteIndex];
+  },
+  deleteQuote: async (quoteId: string): Promise<void> => {
+    let quotes = await api.getQuotes();
+    quotes = quotes.filter(q => q.id !== quoteId);
+    setLocalStorage('reboque360_quotes', quotes);
   },
 
   // Services
@@ -224,16 +229,29 @@ export const api = {
   getDashboardSummary: async () => {
     const services = await api.getServices();
     const transactions = await api.getTransactions();
+    const quotes = await api.getQuotes();
+    const vehicles = await api.getVehicles();
 
     const revenue = transactions.filter(t => t.type === 'revenue').reduce((sum, t) => sum + t.amount, 0);
     const expenses = transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
     
+    // Calculate costs by vehicle
+    const costsByVehicle = vehicles.map(vehicle => {
+        const vehicleServices = services.filter(service => {
+            const quote = quotes.find(q => q.id === service.quoteId);
+            return quote?.vehicleId === vehicle.id && service.status === 'completed';
+        });
+        const totalCost = vehicleServices.reduce((sum, service) => sum + service.cost, 0);
+        return { name: vehicle.model, Custo: totalCost };
+    });
+
     return {
         pendingServices: services.filter(s => s.status === 'pending').length,
         inProgressServices: services.filter(s => s.status === 'in_progress').length,
         totalRevenue: revenue,
         totalExpenses: expenses,
         netProfit: revenue - expenses,
+        costsByVehicle,
     };
   }
 };

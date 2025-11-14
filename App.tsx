@@ -20,7 +20,6 @@ const initialUserSettings = {
   defaultMinCharge: 150.00,
   defaultReturnAddress: 'Garagem Central, São Paulo, SP',
   fuelPrice: 5.89,
-  vehicleConsumption: 8.5, // km/L
 };
 
 

@@ -1,10 +1,11 @@
 
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import type { Quote, User, PlanDetails, QuoteStatus } from '../types';
+import type { Quote, User, PlanDetails, QuoteStatus, Vehicle } from '../types';
 import { api } from '../services/api';
 import { mapsService } from '../services/mapsService';
 import { useGeolocation } from '../hooks/useGeolocation';
-import { MapPin, Bot } from './icons';
+import { MapPin, Bot, Trash, Truck } from './icons';
 import { QuoteEditModal } from './QuoteEditModal';
 import { QuoteSummaryModal } from './QuoteSummaryModal';
 
@@ -24,11 +25,14 @@ const statusConfig: Record<QuoteStatus, { label: string; color: string }> = {
 
 export const Quotes: React.FC<QuotesProps> = ({ user, planDetails }) => {
     const [quotes, setQuotes] = useState<Quote[]>([]);
+    const [vehicles, setVehicles] = useState<Vehicle[]>([]);
     const [loading, setLoading] = useState(true);
     const [editingQuote, setEditingQuote] = useState<Quote | null>(null);
     const [statusFilter, setStatusFilter] = useState<QuoteStatus | 'all'>('all');
+    const [dateFilter, setDateFilter] = useState({ start: '', end: '' });
 
     // Form state
+    const [selectedVehicleId, setSelectedVehicleId] = useState<string>('');
     const [currentLocation, setCurrentLocation] = useState('');
     const [origin, setOrigin] = useState('');
     const [destination, setDestination] = useState('');
@@ -43,7 +47,6 @@ export const Quotes: React.FC<QuotesProps> = ({ user, planDetails }) => {
     const [isReverseGeocoding, setIsReverseGeocoding] = useState(false);
     const [geocodingField, setGeocodingField] = useState<GeolocationField | null>(null);
     const [summaryQuote, setSummaryQuote] = useState<Quote | null>(null);
-
 
     const { getLocation, data: geoData, loading: geoLoading, error: geoError } = useGeolocation();
 
@@ -79,16 +82,25 @@ export const Quotes: React.FC<QuotesProps> = ({ user, planDetails }) => {
         getLocation();
     };
     
-    const fetchQuotes = useCallback(async () => {
+    const fetchQuotesAndVehicles = useCallback(async () => {
         setLoading(true);
-        const data = await api.getQuotes();
-        setQuotes(data.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
-        setLoading(false);
+        try {
+            const [quotesData, vehiclesData] = await Promise.all([
+                api.getQuotes(),
+                api.getVehicles(),
+            ]);
+            setQuotes(quotesData.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+            setVehicles(vehiclesData);
+        } catch (error) {
+            console.error("Failed to fetch data:", error);
+        } finally {
+            setLoading(false);
+        }
     }, []);
 
     useEffect(() => {
-        fetchQuotes();
-    }, [fetchQuotes]);
+        fetchQuotesAndVehicles();
+    }, [fetchQuotesAndVehicles]);
     
     const handleEditQuote = (quote: Quote) => {
         setEditingQuote(quote);
@@ -101,7 +113,7 @@ export const Quotes: React.FC<QuotesProps> = ({ user, planDetails }) => {
     const handleUpdateQuote = async (updatedQuote: Quote) => {
         try {
             await api.updateQuote(updatedQuote);
-            await fetchQuotes(); // Refresh the list
+            await fetchQuotesAndVehicles();
             handleCloseModal();
         } catch (error) {
             console.error("Failed to update quote:", error);
@@ -116,7 +128,7 @@ export const Quotes: React.FC<QuotesProps> = ({ user, planDetails }) => {
         }
         try {
             await api.addService(quote);
-            await fetchQuotes();
+            await fetchQuotesAndVehicles();
             alert(`Serviço criado com sucesso para o orçamento de ${quote.origin} para ${quote.destination}.`);
             handleCloseModal();
         } catch (error) {
@@ -125,13 +137,35 @@ export const Quotes: React.FC<QuotesProps> = ({ user, planDetails }) => {
         }
     };
 
+    const handleDeleteQuote = async (e: React.MouseEvent, quoteId: string) => {
+        e.stopPropagation();
+        if (window.confirm('Tem certeza que deseja excluir este orçamento? Esta ação não pode ser desfeita.')) {
+            try {
+                await api.deleteQuote(quoteId);
+                await fetchQuotesAndVehicles();
+            } catch (error) {
+                console.error("Failed to delete quote:", error);
+                alert("Não foi possível excluir o orçamento.");
+            }
+        }
+    };
+
     const handleCalculateRoute = async () => {
+        if (!selectedVehicleId) {
+            alert('Por favor, selecione um veículo para o orçamento.');
+            return;
+        }
         if (!currentLocation || !origin || !destination || !returnAddress) {
             alert('Por favor, preencha todos os quatro endereços para calcular a rota.');
             return;
         }
         setIsCalculating(true);
         try {
+            const selectedVehicle = vehicles.find(v => v.id === selectedVehicleId);
+            if (!selectedVehicle) {
+                throw new Error("Veículo selecionado não encontrado.");
+            }
+
             const routeLegs = [
                 { from: currentLocation, to: origin },
                 { from: origin, to: destination },
@@ -142,7 +176,7 @@ export const Quotes: React.FC<QuotesProps> = ({ user, planDetails }) => {
             // Perform calculations
             const calculatedTotal = (dist * kmValue) + minCharge + extras;
             const finalTotal = Math.max(calculatedTotal, minCharge + extras);
-            const calculatedFuelCost = (dist / user.settings.vehicleConsumption) * user.settings.fuelPrice;
+            const calculatedFuelCost = (dist / selectedVehicle.avgConsumption) * user.settings.fuelPrice;
 
             // Create temporary quote object for summary
             const tempQuote: Omit<Quote, 'id' | 'createdAt' | 'status'> & { id?: string; createdAt?: string; status?: QuoteStatus } = {
@@ -157,6 +191,7 @@ export const Quotes: React.FC<QuotesProps> = ({ user, planDetails }) => {
                 notes,
                 total: finalTotal,
                 fuelCost: calculatedFuelCost,
+                vehicleId: selectedVehicleId,
             };
             
             setSummaryQuote({ ...tempQuote, id: 'temp', createdAt: new Date().toISOString(), status: 'pending' });
@@ -182,7 +217,7 @@ export const Quotes: React.FC<QuotesProps> = ({ user, planDetails }) => {
         
         try {
             await api.addQuote(newQuoteData);
-            await fetchQuotes();
+            await fetchQuotesAndVehicles();
             
             // Reset form
             setCurrentLocation('');
@@ -190,6 +225,7 @@ export const Quotes: React.FC<QuotesProps> = ({ user, planDetails }) => {
             setDestination('');
             setExtras(0);
             setNotes('');
+            setSelectedVehicleId('');
         } catch (error) {
             console.error("Failed to save quote:", error);
             alert("Ocorreu um erro ao salvar o orçamento.");
@@ -214,7 +250,7 @@ export const Quotes: React.FC<QuotesProps> = ({ user, planDetails }) => {
         e.stopPropagation();
         try {
             await api.updateQuoteStatus(quoteId, newStatus);
-            await fetchQuotes();
+            await fetchQuotesAndVehicles();
         } catch (error) {
             console.error("Failed to update quote status:", error);
             alert("Erro ao atualizar o status do orçamento.");
@@ -222,11 +258,25 @@ export const Quotes: React.FC<QuotesProps> = ({ user, planDetails }) => {
     };
 
     const filteredQuotes = useMemo(() => {
-        if (statusFilter === 'all') {
-            return quotes;
+        let filtered = quotes;
+        
+        if (statusFilter !== 'all') {
+            filtered = filtered.filter(q => q.status === statusFilter);
         }
-        return quotes.filter(q => q.status === statusFilter);
-    }, [quotes, statusFilter]);
+
+        if (dateFilter.start) {
+            const startDate = new Date(dateFilter.start);
+            startDate.setHours(0, 0, 0, 0);
+            filtered = filtered.filter(q => new Date(q.createdAt) >= startDate);
+        }
+        if (dateFilter.end) {
+            const endDate = new Date(dateFilter.end);
+            endDate.setHours(23, 59, 59, 999);
+            filtered = filtered.filter(q => new Date(q.createdAt) <= endDate);
+        }
+
+        return filtered;
+    }, [quotes, statusFilter, dateFilter]);
 
     return (
         <>
@@ -235,6 +285,24 @@ export const Quotes: React.FC<QuotesProps> = ({ user, planDetails }) => {
                  <h1 className="text-3xl font-bold text-gray-800">Novo Orçamento</h1>
                 <div className="bg-white p-6 rounded-lg shadow-lg">
                     <div className="space-y-6">
+                        {/* VEHICLE SELECTOR */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">
+                                Veículo
+                                <span className="block text-xs text-gray-500 font-normal">Selecione o veículo para este serviço</span>
+                            </label>
+                            <select
+                                value={selectedVehicleId}
+                                onChange={e => setSelectedVehicleId(e.target.value)}
+                                className="mt-1 block w-full text-gray-900 bg-white border border-gray-300 rounded-md shadow-sm py-3 px-4 focus:ring-brand-blue-500 focus:border-brand-blue-500"
+                            >
+                                <option value="" disabled>-- Selecione um veículo --</option>
+                                {vehicles.map(v => (
+                                    <option key={v.id} value={v.id}>{v.model} ({v.plate})</option>
+                                ))}
+                            </select>
+                        </div>
+                        
                         {/* ADDRESS FIELDS */}
                         <AddressInput label="Seu Local Atual (Partida)" subLabel="Onde você está agora" value={currentLocation} onChange={setCurrentLocation} placeholder="Ex: Rua das Flores, 123" onGeolocate={() => handleGeolocate('current')} isGeolocating={(geoLoading || isReverseGeocoding) && geocodingField === 'current'} geoError={geocodingField === 'current' ? geoError?.message : undefined} />
                         <AddressInput label="Origem (Busca do Veículo)" subLabel="Endereço de coleta" value={origin} onChange={setOrigin} placeholder="Ex: Av. Brasil, 456" />
@@ -261,51 +329,66 @@ export const Quotes: React.FC<QuotesProps> = ({ user, planDetails }) => {
             </div>
 
             <div className="lg:col-span-2 space-y-6">
-                <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
-                    <h1 className="text-3xl font-bold text-gray-800">Histórico de Orçamentos</h1>
-                    <select 
-                        value={statusFilter} 
-                        onChange={e => setStatusFilter(e.target.value as any)}
-                        className="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-brand-blue-500 focus:border-brand-blue-500 block w-full md:w-auto p-2.5"
-                    >
-                        <option value="all">Filtrar por Status</option>
-                        {Object.entries(statusConfig).map(([statusKey, { label }]) => (
-                            <option key={statusKey} value={statusKey}>{label}</option>
-                        ))}
-                    </select>
-                </div>
-                <div className="bg-white p-6 rounded-lg shadow-lg space-y-4 max-h-[80vh] overflow-y-auto">
-                    {loading ? <p>Carregando histórico...</p> : filteredQuotes.map(q => (
-                        <button 
-                            key={q.id} 
-                            onClick={() => handleEditQuote(q)}
-                            className="w-full text-left border border-gray-200 p-4 rounded-lg hover:bg-gray-50 hover:shadow-md transition-all duration-200"
+                <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 bg-white p-4 rounded-lg shadow-md sticky top-0 z-10">
+                    <h1 className="text-2xl font-bold text-gray-800">Histórico</h1>
+                    <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+                        <input type="date" value={dateFilter.start} onChange={e => setDateFilter(p => ({...p, start: e.target.value}))} className="bg-gray-100 border-gray-300 text-sm rounded-lg p-2.5" />
+                        <input type="date" value={dateFilter.end} onChange={e => setDateFilter(p => ({...p, end: e.target.value}))} className="bg-gray-100 border-gray-300 text-sm rounded-lg p-2.5" />
+                        <select 
+                            value={statusFilter} 
+                            onChange={e => setStatusFilter(e.target.value as any)}
+                            className="bg-gray-100 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-brand-blue-500 focus:border-brand-blue-500 block w-full p-2.5"
                         >
-                            <div className="flex flex-col sm:flex-row justify-between sm:items-start">
-                                <div>
-                                    <p className="font-bold text-gray-800">{q.origin} → {q.destination}</p>
-                                    <p className="text-sm text-gray-500">{new Date(q.createdAt).toLocaleDateString('pt-BR')} - {q.totalDistance} km (total)</p>
+                            <option value="all">Todos Status</option>
+                            {Object.entries(statusConfig).map(([statusKey, { label }]) => (
+                                <option key={statusKey} value={statusKey}>{label}</option>
+                            ))}
+                        </select>
+                    </div>
+                </div>
+                <div className="space-y-4 max-h-[75vh] overflow-y-auto pr-2">
+                    {loading ? <p>Carregando histórico...</p> : filteredQuotes.map(q => (
+                        <div key={q.id} className="relative group bg-white border border-gray-200 p-4 rounded-lg hover:shadow-md transition-shadow duration-200">
+                             <button 
+                                onClick={(e) => handleDeleteQuote(e, q.id)} 
+                                className="absolute top-2 right-2 p-1.5 text-gray-400 bg-gray-100 rounded-full opacity-0 group-hover:opacity-100 hover:bg-red-100 hover:text-red-600 transition-opacity"
+                                aria-label="Excluir Orçamento"
+                            >
+                                <Trash className="w-4 h-4" />
+                            </button>
+                            <button 
+                                onClick={() => handleEditQuote(q)}
+                                className="w-full text-left"
+                            >
+                                <div className="flex flex-col sm:flex-row justify-between sm:items-start">
+                                    <div>
+                                        <p className="font-bold text-gray-800">{q.origin} → {q.destination}</p>
+                                        <p className="text-sm text-gray-500">{new Date(q.createdAt).toLocaleDateString('pt-BR')} - {q.totalDistance} km (total)</p>
+                                        {q.vehicleId && vehicles.find(v => v.id === q.vehicleId) && 
+                                          <p className="text-xs text-gray-500 mt-1 flex items-center"><Truck className="w-3 h-3 mr-1"/>{vehicles.find(v => v.id === q.vehicleId)?.model}</p>
+                                        }
+                                    </div>
+                                    <p className="text-lg font-bold text-brand-blue-700 mt-2 sm:mt-0">R$ {q.total.toFixed(2)}</p>
                                 </div>
-                                <p className="text-lg font-bold text-brand-blue-700 mt-2 sm:mt-0">R$ {q.total.toFixed(2)}</p>
-                            </div>
-                             {q.notes && <p className="text-sm text-gray-600 mt-2 italic">"{q.notes}"</p>}
-                             <div className="mt-3 flex flex-wrap gap-2 items-center">
-                                <button onClick={(e) => handleShareWhatsApp(e, q)} className="z-10 text-sm bg-green-500 text-white py-1 px-3 rounded-md hover:bg-green-600">Compartilhar no WhatsApp</button>
-                                <button onClick={(e) => handleCreateServiceClick(e, q)} disabled={q.status === 'service_created'} className="z-10 text-sm bg-brand-blue-500 text-white py-1 px-3 rounded-md hover:bg-brand-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed">
-                                    {q.status === 'service_created' ? 'Serviço Criado' : 'Criar Serviço'}
-                                </button>
-                                <div className="relative z-10">
-                                    <select
-                                        value={q.status}
-                                        onChange={(e) => handleStatusChange(e, q.id, e.target.value as QuoteStatus)}
-                                        onClick={(e) => e.stopPropagation()} // Prevent card click
-                                        className={`text-sm font-semibold rounded-full px-3 py-1.5 appearance-none focus:outline-none cursor-pointer ${statusConfig[q.status]?.color || 'bg-gray-200'}`}
-                                    >
-                                        {Object.entries(statusConfig).map(([key, { label }]) => <option key={key} value={key}>{label}</option>)}
-                                    </select>
+                                {q.notes && <p className="text-sm text-gray-600 mt-2 italic">"{q.notes}"</p>}
+                                <div className="mt-3 flex flex-wrap gap-2 items-center">
+                                    <button onClick={(e) => handleShareWhatsApp(e, q)} className="z-10 text-sm bg-green-500 text-white py-1 px-3 rounded-md hover:bg-green-600">Compartilhar no WhatsApp</button>
+                                    <button onClick={(e) => handleCreateServiceClick(e, q)} disabled={q.status === 'service_created'} className="z-10 text-sm bg-brand-blue-500 text-white py-1 px-3 rounded-md hover:bg-brand-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed">
+                                        {q.status === 'service_created' ? 'Serviço Criado' : 'Criar Serviço'}
+                                    </button>
+                                    <div className="relative z-10">
+                                        <select
+                                            value={q.status}
+                                            onChange={(e) => handleStatusChange(e, q.id, e.target.value as QuoteStatus)}
+                                            onClick={(e) => e.stopPropagation()} // Prevent card click
+                                            className={`text-sm font-semibold rounded-full px-3 py-1.5 appearance-none focus:outline-none cursor-pointer ${statusConfig[q.status]?.color || 'bg-gray-200'}`}
+                                        >
+                                            {Object.entries(statusConfig).map(([key, { label }]) => <option key={key} value={key}>{label}</option>)}
+                                        </select>
+                                    </div>
                                 </div>
-                            </div>
-                        </button>
+                            </button>
+                        </div>
                     ))}
                     {filteredQuotes.length === 0 && !loading && <p className="text-center text-gray-500 py-4">Nenhum orçamento encontrado com os filtros aplicados.</p>}
                 </div>

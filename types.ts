@@ -1,4 +1,5 @@
 
+
 export type Plan = 'free' | 'pro' | 'premium';
 
 export type View = 'dashboard' | 'quotes' | 'services' | 'financial' | 'fleet' | 'settings';
@@ -8,7 +9,6 @@ export interface UserSettings {
   defaultMinCharge: number;
   defaultReturnAddress: string;
   fuelPrice: number;
-  vehicleConsumption: number; // km/L
 }
 
 export interface User {
@@ -45,6 +45,7 @@ export interface Quote {
   fuelCost: number; // Internal cost
   status: QuoteStatus;
   createdAt: string;
+  vehicleId?: string; // Link to the vehicle used for this quote
 }
 
 export type ServiceStatus = 'pending' | 'in_progress' | 'completed';
@@ -58,6 +59,12 @@ export interface Service {
   value: number;
   cost: number;
   createdAt: string;
+}
+
+export interface ServiceWithDetails extends Service {
+    origin: string;
+    destination: string;
+    profit: number;
 }
 
 export type TransactionType = 'revenue' | 'expense';
