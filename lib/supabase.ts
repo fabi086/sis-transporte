@@ -2,8 +2,8 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 // IMPORTANT: Replace these placeholder values with your actual Supabase credentials.
 // For production, it's highly recommended to use environment variables to keep your keys secure.
-const SUPABASE_URL = 'YOUR_SUPABASE_URL'; // Example: 'https://xyz.supabase.co'
-const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+const SUPABASE_URL = 'https://hyrznpnzussnnovuufdz.supabase.co'; // Example: 'https://xyz.supabase.co'
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh5cnpucG56dXNzbm5vdnV1ZmR6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMxMjE3MTMsImV4cCI6MjA3ODY5NzcxM30.ozFvi3wR4Pfq_H8ACOzPQtF6q7OXW-VMOIVJflj2rV4';
 
 /**
  * A singleton instance of the Supabase client.
