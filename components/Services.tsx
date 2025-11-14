@@ -75,7 +75,7 @@ export const Services: React.FC = () => {
         };
     });
 
-    let filtered = servicesWithDetails;
+    let filtered: ServiceWithDetails[] = servicesWithDetails;
 
     // Apply status filter
     if (statusFilter !== 'all') {
@@ -97,7 +97,8 @@ export const Services: React.FC = () => {
     // Apply search filter
     if (searchTerm) {
         const lowercasedTerm = searchTerm.toLowerCase();
-        filtered = filtered.filter(s => 
+        // FIX: Explicitly type the `s` parameter in the filter callback to resolve type inference errors.
+        filtered = filtered.filter((s) => 
             s.clientName.toLowerCase().includes(lowercasedTerm) ||
             s.origin.toLowerCase().includes(lowercasedTerm) ||
             s.destination.toLowerCase().includes(lowercasedTerm)

@@ -1,4 +1,3 @@
-
 import React from 'react';
 import type { View, Plan } from '../types';
 import { NAV_ITEMS } from '../constants';
@@ -10,9 +9,10 @@ interface SidebarProps {
   userPlan: Plan;
   isOpen: boolean;
   setIsOpen: (isOpen: boolean) => void;
+  onLogout: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, userPlan, isOpen, setIsOpen }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, userPlan, isOpen, setIsOpen, onLogout }) => {
   return (
     <>
       {/* Backdrop for mobile */}
@@ -55,7 +55,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, u
           })}
         </nav>
         <div className="px-2 lg:px-4 py-4 border-t border-brand-blue-900 flex-shrink-0">
-           <button className="w-full flex items-center justify-center lg:justify-start p-3 rounded-lg text-gray-400 hover:bg-brand-blue-900 hover:text-white transition-colors duration-200">
+           <button onClick={onLogout} className="w-full flex items-center justify-center lg:justify-start p-3 rounded-lg text-gray-400 hover:bg-brand-blue-900 hover:text-white transition-colors duration-200">
             <LogOut className="h-6 w-6" />
             <span className="hidden lg:block ml-4">Sair</span>
           </button>

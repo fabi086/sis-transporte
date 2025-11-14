@@ -1,5 +1,4 @@
-
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { Dashboard } from './components/Dashboard';
@@ -11,26 +10,91 @@ import { Settings } from './components/Settings';
 import type { User, Plan, View } from './types';
 import { PLANS } from './constants';
 import { Plus } from './components/icons';
+import { getSupabase, setSupabaseCredentials } from './lib/supabase';
+import { Auth } from './components/Auth';
+import type { Session, SupabaseClient } from '@supabase/supabase-js';
+
+// Mock user settings, can be moved to user profile in DB later
+const initialUserSettings = {
+  defaultKmValue: 5.50,
+  defaultMinCharge: 150.00,
+  defaultReturnAddress: 'Garagem Central, São Paulo, SP',
+  fuelPrice: 5.89,
+  vehicleConsumption: 8.5, // km/L
+};
+
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   
-  // Mock user state, including the subscription plan
+  const [supabase, setSupabase] = useState<SupabaseClient | null>(() => getSupabase());
+  const [session, setSession] = useState<Session | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // User state is now a combination of auth data and app-specific settings
   const [user, setUser] = useState<User>({
-    name: 'João Silva',
-    companyName: 'Reboques Rápidos',
+    name: 'Convidado',
+    companyName: 'Reboques',
     logo: 'https://picsum.photos/100',
-    email: 'joao.silva@reboques.com',
-    plan: 'premium' as Plan,
-    settings: {
-      defaultKmValue: 5.50,
-      defaultMinCharge: 150.00,
-      defaultReturnAddress: 'Garagem Central, São Paulo, SP',
-      fuelPrice: 5.89,
-      vehicleConsumption: 8.5, // km/L
-    }
+    email: '',
+    plan: 'premium', // For now, we keep plan logic on the frontend
+    settings: initialUserSettings,
   });
+  
+  useEffect(() => {
+    if (!supabase) {
+      setLoading(false);
+      return;
+    }
+    
+    setLoading(true);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setLoading(false);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, [supabase]);
+
+  // Derive user object from session
+  useEffect(() => {
+    if (session) {
+      setUser(prevUser => ({
+        ...prevUser,
+        name: session.user.user_metadata.name || 'Usuário',
+        companyName: session.user.user_metadata.companyName || 'Minha Empresa',
+        email: session.user.email || '',
+      }));
+    } else {
+       setUser(prevUser => ({
+        ...prevUser,
+        name: 'Convidado',
+        companyName: 'Reboques',
+        email: '',
+      }));
+    }
+  }, [session]);
+
+  const handleSetCredentials = (url: string, key: string) => {
+    const newSupabaseClient = setSupabaseCredentials(url, key);
+    if(newSupabaseClient) {
+      setSupabase(newSupabaseClient);
+    } else {
+      alert("Falha ao configurar as credenciais do Supabase. Verifique os valores e tente novamente.");
+    }
+  };
+
+  const handleLogout = async () => {
+    if (supabase) {
+      const { error } = await supabase.auth.signOut();
+      if(error) console.error("Error logging out:", error);
+    }
+  };
 
   const handleViewChange = (view: View) => {
     // Prevent access to fleet page if not on premium plan
@@ -66,6 +130,19 @@ const App: React.FC = () => {
     }
   };
 
+  if (loading) {
+    return (
+       <div className="flex h-screen w-full items-center justify-center bg-gray-100">
+          <div className="text-xl font-semibold text-gray-700">Carregando...</div>
+      </div>
+    );
+  }
+
+  if (!session) {
+      return <Auth onSetCredentials={handleSetCredentials} supabase={supabase} />;
+  }
+
+
   return (
     <div className="flex h-screen bg-gray-100 font-sans">
       <Sidebar 
@@ -74,6 +151,7 @@ const App: React.FC = () => {
         userPlan={user.plan} 
         isOpen={isSidebarOpen}
         setIsOpen={setIsSidebarOpen}
+        onLogout={handleLogout}
       />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header user={user} onMenuClick={() => setIsSidebarOpen(prev => !prev)} />
