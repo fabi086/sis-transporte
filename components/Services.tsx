@@ -62,8 +62,7 @@ export const Services: React.FC = () => {
     const quotesMap = new Map(quotes.map(q => [q.id, q]));
     
     const servicesWithDetails: ServiceWithDetails[] = services.map(service => {
-        // FIX: Explicitly type `quote` to resolve type inference issues.
-        const quote: Quote | undefined = quotesMap.get(service.quoteId);
+        const quote = quotesMap.get(service.quoteId);
         return {
             ...service,
             origin: quote?.origin || 'N/A',
@@ -105,7 +104,7 @@ export const Services: React.FC = () => {
     filtered.sort((a, b) => {
         const dateA = new Date(a.createdAt).getTime();
         const dateB = new Date(b.createdAt).getTime();
-        // FIX: Corrected a typo where 'b' was used instead of 'dateB'.
+        // FIX: Corrected a typo where 'b' was used instead of 'dateB' for sorting.
         return sortBy === 'newest' ? dateB - dateA : dateA - dateB;
     });
 

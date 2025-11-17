@@ -20,6 +20,19 @@ export interface User {
   settings: UserSettings;
 }
 
+export interface Profile {
+  id: string;
+  name?: string;
+  company_name?: string;
+  logo_url?: string;
+  plan?: string;
+  default_km_value: number;
+  default_min_charge: number;
+  default_return_address: string;
+  fuel_price: number;
+}
+
+
 export interface PlanDetails {
     name: string;
     price: number;
@@ -76,6 +89,7 @@ export interface Transaction {
     type: TransactionType;
     category: string;
     date: string;
+    serviceId?: string;
 }
 
 export interface Vehicle {

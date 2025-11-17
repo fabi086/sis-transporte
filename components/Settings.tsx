@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import type { User } from '../types';
 import { PLANS } from '../constants';
 import { usePushNotifications } from '../hooks/usePushNotifications';
+import { api } from '../services/api';
 
 interface SettingsProps {
   user: User;
@@ -19,19 +20,32 @@ export const Settings: React.FC<SettingsProps> = ({ user, setUser }) => {
   const { isSubscribed, subscribeToPush, unsubscribeFromPush, error: pushError, loading: pushLoading, isSupported } = usePushNotifications();
 
 
-  const handleSave = () => {
-    setUser(prevUser => ({
-      ...prevUser,
-      companyName,
-      settings: {
-        ...prevUser.settings,
-        defaultKmValue: kmValue,
-        defaultMinCharge: minCharge,
-        defaultReturnAddress: returnAddress,
-        fuelPrice: fuelPrice,
+  const handleSave = async () => {
+    try {
+      const updatedProfileData = {
+        name: user.name, // Name is not editable here, but we pass it along
+        company_name: companyName,
+        default_km_value: kmValue,
+        default_min_charge: minCharge,
+        default_return_address: returnAddress,
+        fuel_price: fuelPrice,
+      };
+      
+      const updatedUserFromApi = await api.updateUserProfile(updatedProfileData);
+
+      if (updatedUserFromApi) {
+          // Update the app's central user state with the returned data from the API
+          setUser(prevUser => ({
+            ...prevUser,
+            ...updatedUserFromApi,
+          }));
       }
-    }));
-    alert('Configurações salvas com sucesso!');
+
+      alert('Configurações salvas com sucesso!');
+    } catch (error) {
+        console.error("Failed to save settings:", error);
+        alert('Ocorreu um erro ao salvar as configurações.');
+    }
   };
 
   const inputClasses = "mt-1 block w-full bg-gray-800 text-white rounded-lg py-3 px-4 border-0 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-blue-500 focus:ring-offset-white placeholder:text-gray-400";

@@ -13,6 +13,7 @@ import { Plus } from './components/icons';
 import { supabase } from './lib/supabase';
 import { Auth } from './components/Auth';
 import type { Session } from '@supabase/supabase-js';
+import { api } from './services/api';
 
 // Mock user settings, can be moved to user profile in DB later
 const initialUserSettings = {
@@ -71,7 +72,7 @@ const App: React.FC = () => {
     setLoading(true);
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
-      setLoading(false);
+      // setLoading will be set to false in the session effect
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -81,23 +82,48 @@ const App: React.FC = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Derive user object from session
+  // Fetch user profile from DB when session changes
   useEffect(() => {
-    if (session) {
-      setUser(prevUser => ({
-        ...prevUser,
-        name: session.user.user_metadata.name || 'Usuário',
-        companyName: session.user.user_metadata.companyName || 'Minha Empresa',
-        email: session.user.email || '',
-      }));
-    } else {
-       setUser(prevUser => ({
-        ...prevUser,
-        name: 'Convidado',
-        companyName: 'Reboques',
-        email: '',
-      }));
-    }
+    const fetchUserProfile = async () => {
+      if (session) {
+        setLoading(true);
+        try {
+          const profile = await api.getUserProfile();
+          if (profile) {
+            setUser({
+              name: profile.name || 'Usuário',
+              companyName: profile.company_name || 'Minha Empresa',
+              logo: profile.logo_url,
+              email: session.user.email || '',
+              plan: (profile.plan as Plan) || 'free',
+              settings: {
+                defaultKmValue: profile.default_km_value,
+                defaultMinCharge: profile.default_min_charge,
+                defaultReturnAddress: profile.default_return_address || '',
+                fuelPrice: profile.fuel_price,
+              },
+            });
+          }
+        } catch (error) {
+          console.error("Failed to fetch user profile:", error);
+          // Handle error, maybe logout or show a message
+        } finally {
+          setLoading(false);
+        }
+      } else {
+         setUser({
+            name: 'Convidado',
+            companyName: 'Reboques',
+            logo: 'https://picsum.photos/100',
+            email: '',
+            plan: 'premium', 
+            settings: initialUserSettings,
+         });
+         setLoading(false);
+      }
+    };
+
+    fetchUserProfile();
   }, [session]);
 
   const handleLogout = async () => {
