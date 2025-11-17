@@ -102,7 +102,8 @@ export const Quotes: React.FC<QuotesProps> = ({ user, planDetails }) => {
         fetchQuotesAndVehicles();
     }, [fetchQuotesAndVehicles]);
     
-    const handleEditQuote = (quote: Quote) => {
+    const handleEditQuote = (e: React.MouseEvent, quote: Quote) => {
+        e.stopPropagation();
         setEditingQuote(quote);
     };
 
@@ -137,7 +138,8 @@ export const Quotes: React.FC<QuotesProps> = ({ user, planDetails }) => {
         }
     };
 
-    const handleDeleteQuote = async (quoteId: string) => {
+    const handleDeleteQuote = async (e: React.MouseEvent, quoteId: string) => {
+        e.stopPropagation();
         if (window.confirm('Tem certeza que deseja excluir este orçamento? Esta ação não pode ser desfeita.')) {
             try {
                 await api.deleteQuote(quoteId);
@@ -380,18 +382,18 @@ export const Quotes: React.FC<QuotesProps> = ({ user, planDetails }) => {
                                 </div>
                                 <div className="flex items-center space-x-2">
                                     <button 
-                                        onClick={() => handleEditQuote(q)}
-                                        className="p-1.5 text-gray-400 hover:bg-gray-200 hover:text-gray-700 rounded-full"
+                                        onClick={(e) => handleEditQuote(e, q)}
+                                        className="p-2 text-gray-600 hover:bg-blue-100 hover:text-brand-blue-600 rounded-full transition-colors"
                                         aria-label="Editar Orçamento"
                                     >
-                                        <Edit className="w-4 h-4" />
+                                        <Edit className="w-5 h-5" />
                                     </button>
                                     <button 
-                                        onClick={() => handleDeleteQuote(q.id)} 
-                                        className="p-1.5 text-gray-400 hover:bg-red-100 hover:text-red-600 rounded-full"
+                                        onClick={(e) => handleDeleteQuote(e, q.id)}
+                                        className="p-2 text-gray-600 hover:bg-red-100 hover:text-red-600 rounded-full transition-colors"
                                         aria-label="Excluir Orçamento"
                                     >
-                                        <Trash className="w-4 h-4" />
+                                        <Trash className="w-5 h-5" />
                                     </button>
                                 </div>
                              </div>

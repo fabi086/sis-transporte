@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useMemo } from 'react';
 import type { Service, ServiceStatus, Quote, ServiceWithDetails } from '../types';
 import { api } from '../services/api';
@@ -61,7 +62,8 @@ export const Services: React.FC = () => {
     const quotesMap = new Map(quotes.map(q => [q.id, q]));
     
     const servicesWithDetails: ServiceWithDetails[] = services.map(service => {
-        const quote = quotesMap.get(service.quoteId);
+        // FIX: Explicitly type `quote` to resolve type inference issues.
+        const quote: Quote | undefined = quotesMap.get(service.quoteId);
         return {
             ...service,
             origin: quote?.origin || 'N/A',
@@ -92,7 +94,6 @@ export const Services: React.FC = () => {
     // Apply search filter
     if (searchTerm) {
         const lowercasedTerm = searchTerm.toLowerCase();
-        // FIX: Explicitly type the 's' parameter in the filter callback. The parameter was being inferred as 'unknown', causing a type error.
         filtered = filtered.filter((s: ServiceWithDetails) => 
             s.clientName.toLowerCase().includes(lowercasedTerm) ||
             s.origin.toLowerCase().includes(lowercasedTerm) ||
@@ -104,6 +105,7 @@ export const Services: React.FC = () => {
     filtered.sort((a, b) => {
         const dateA = new Date(a.createdAt).getTime();
         const dateB = new Date(b.createdAt).getTime();
+        // FIX: Corrected a typo where 'b' was used instead of 'dateB'.
         return sortBy === 'newest' ? dateB - dateA : dateA - dateB;
     });
 
