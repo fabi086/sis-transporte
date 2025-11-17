@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import type { User } from '../types';
 import { PLANS } from '../constants';
 import { usePushNotifications } from '../hooks/usePushNotifications';
@@ -15,6 +15,8 @@ export const Settings: React.FC<SettingsProps> = ({ user, setUser }) => {
   const [companyName, setCompanyName] = useState(user.companyName);
   const [returnAddress, setReturnAddress] = useState(user.settings.defaultReturnAddress);
   const [fuelPrice, setFuelPrice] = useState(user.settings.fuelPrice);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Hook for push notification logic
   const { isSubscribed, subscribeToPush, unsubscribeFromPush, error: pushError, loading: pushLoading, isSupported } = usePushNotifications();
@@ -25,6 +27,7 @@ export const Settings: React.FC<SettingsProps> = ({ user, setUser }) => {
       const updatedProfileData = {
         name: user.name, // Name is not editable here, but we pass it along
         company_name: companyName,
+        logo_url: user.logo, // Preserve existing logo
         default_km_value: kmValue,
         default_min_charge: minCharge,
         default_return_address: returnAddress,
@@ -48,6 +51,35 @@ export const Settings: React.FC<SettingsProps> = ({ user, setUser }) => {
     }
   };
 
+  const handleLogoButtonClick = () => {
+      fileInputRef.current?.click();
+  };
+
+  const handleLogoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (!e.target.files || e.target.files.length === 0) {
+          return;
+      }
+      const file = e.target.files[0];
+      if (file.size > 2 * 1024 * 1024) { // 2MB limit
+          alert("O arquivo é muito grande. O limite é de 2MB.");
+          return;
+      }
+      setIsUploading(true);
+      try {
+          const logoUrl = await api.uploadLogo(file);
+          const updatedUser = await api.updateProfileLogo(logoUrl);
+          if (updatedUser) {
+              setUser(prev => ({ ...prev, ...updatedUser }));
+          }
+          alert("Logo atualizado com sucesso!");
+      } catch (error) {
+          console.error("Failed to upload logo:", error);
+          alert("Não foi possível atualizar o logo.");
+      } finally {
+          setIsUploading(false);
+      }
+  };
+
   const inputClasses = "mt-1 block w-full bg-gray-800 text-white rounded-lg py-3 px-4 border-0 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-blue-500 focus:ring-offset-white placeholder:text-gray-400";
 
 
@@ -69,8 +101,11 @@ export const Settings: React.FC<SettingsProps> = ({ user, setUser }) => {
           <div>
             <label className="block text-sm font-medium text-gray-700">Logo</label>
             <div className="mt-2 flex items-center space-x-4">
-              <img src={user.logo} alt="Logo" className="h-16 w-16 rounded-full object-cover" />
-              <button className="bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded-lg text-sm hover:bg-gray-300">Alterar Logo</button>
+              <img src={user.logo || 'https://picsum.photos/100'} alt="Logo" className="h-16 w-16 rounded-full object-cover" />
+              <input type="file" ref={fileInputRef} onChange={handleLogoChange} accept="image/png, image/jpeg" className="hidden" />
+              <button onClick={handleLogoButtonClick} disabled={isUploading} className="bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded-lg text-sm hover:bg-gray-300 disabled:bg-gray-400 disabled:cursor-wait">
+                {isUploading ? 'Enviando...' : 'Alterar Logo'}
+              </button>
             </div>
           </div>
         </div>

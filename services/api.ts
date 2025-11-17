@@ -117,6 +117,18 @@ CREATE TABLE public.transactions (
 ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can manage their own transactions" ON public.transactions FOR ALL USING (auth.uid() = user_id);
 
+-- STORAGE BUCKET: logos
+-- Cria o bucket para armazenar os logos das empresas
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('logos', 'logos', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- Políticas de Segurança para o bucket 'logos'
+CREATE POLICY "Allow public read access to logos" ON storage.objects FOR SELECT USING (bucket_id = 'logos');
+CREATE POLICY "Allow authenticated users to upload logos" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'logos' AND auth.role() = 'authenticated');
+CREATE POLICY "Allow users to update their own logo" ON storage.objects FOR UPDATE USING (bucket_id = 'logos' AND auth.uid() = owner);
+CREATE POLICY "Allow users to delete their own logo" ON storage.objects FOR DELETE USING (bucket_id = 'logos' AND auth.uid() = owner);
+
 */
 
 // Helper to get current user ID
@@ -144,6 +156,7 @@ export const api = {
       const updateData = {
           name: profileData.name,
           company_name: profileData.company_name,
+          logo_url: profileData.logo_url,
           default_km_value: profileData.default_km_value,
           default_min_charge: profileData.default_min_charge,
           default_return_address: profileData.default_return_address,
@@ -167,6 +180,30 @@ export const api = {
           fuelPrice: data.fuel_price,
         }
       };
+  },
+  uploadLogo: async (file: File): Promise<string> => {
+      if (!supabase) throw new Error("Supabase client not initialized.");
+      const userId = await getUserId();
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${userId}-${Date.now()}.${fileExt}`;
+      const filePath = `public/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+          .from('logos')
+          .upload(filePath, file, { upsert: true });
+
+      if (uploadError) {
+          throw uploadError;
+      }
+
+      const { data } = supabase.storage
+          .from('logos')
+          .getPublicUrl(filePath);
+      
+      return data.publicUrl;
+  },
+  updateProfileLogo: async (logoUrl: string): Promise<User | null> => {
+    return api.updateUserProfile({ logo_url: logoUrl });
   },
 
 
@@ -309,9 +346,12 @@ export const api = {
   },
   addVehicle: async (vehicle: Omit<Vehicle, 'id'>): Promise<Vehicle> => {
     const userId = await getUserId();
-    const { data, error } = await supabase.from('vehicles').insert({ 
-        ...vehicle,
+    const { data, error } = await supabase.from('vehicles').insert({
         user_id: userId,
+        plate: vehicle.plate,
+        model: vehicle.model,
+        year: vehicle.year,
+        km: vehicle.km,
         avg_consumption: vehicle.avgConsumption,
         next_maintenance_km: vehicle.nextMaintenanceKm,
     }).select().single();
@@ -321,9 +361,12 @@ export const api = {
   updateVehicle: async (updatedVehicle: Vehicle): Promise<Vehicle> => {
     const { id, ...updateData } = updatedVehicle;
     const { data, error } = await supabase.from('vehicles').update({
-        ...updateData,
-        avg_consumption: updatedVehicle.avgConsumption,
-        next_maintenance_km: updatedVehicle.nextMaintenanceKm,
+        plate: updateData.plate,
+        model: updateData.model,
+        year: updateData.year,
+        km: updateData.km,
+        avg_consumption: updateData.avgConsumption,
+        next_maintenance_km: updateData.nextMaintenanceKm,
     }).eq('id', id).select().single();
     if (error) throw error;
     return { ...data, avgConsumption: data.avg_consumption, nextMaintenanceKm: data.next_maintenance_km };
